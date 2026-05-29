@@ -47,9 +47,21 @@ GenieClaw to own audio details.
   this repo.
 - No Home Assistant or `genie-home-runtime` device logic in this repo.
 - No LLM provider logic in this repo.
-- Voice hardware should be portable across Jetson, Raspberry Pi, other SBCs,
-  Linux laptops, and development machines where possible.
-- Jetson / GeniePod Home remains the flagship tested deployment.
+- Voice hardware should be portable across NVIDIA Jetson Orin 8GB, Raspberry
+  Pi, other SBCs, Linux laptops, and development machines where possible.
+- NVIDIA Jetson Orin 8GB remains the flagship tested deployment.
+
+## Evaluation Data
+
+Public datasets can be used, but only for the layer they actually measure:
+
+- `genie-voice-runtime` owns audio, wake/VAD, STT/TTS, transcript quality, and
+  noisy utterance robustness.
+- `genie-claw` owns BFCL tool-call scoring, family memory retrieval,
+  smart-home intent routing, and deterministic device-state questions.
+
+See [`docs/evaluation-data.md`](docs/evaluation-data.md) for the allowed data
+sources, license notes, and where each dataset belongs.
 
 ## Status
 

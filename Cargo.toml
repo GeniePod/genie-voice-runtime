@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 repository = "https://github.com/GeniePod/genie-voice-runtime"
-description = "External voice runtime protocol and implementation for GeniePod Home."
+description = "External voice runtime protocol and implementation for NVIDIA Jetson Orin 8GB."
 
 [lib]
 name = "genie_voice_runtime"
