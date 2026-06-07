@@ -1,0 +1,19 @@
+[Unit]
+Description=GeniePod Parakeet STT Server (parakeet.cpp resident; replaces whisper on :8178)
+After=genie-ai-runtime.service network.target
+Wants=genie-ai-runtime.service
+
+[Service]
+Type=simple
+User=aihpc
+Environment=PK_PORT=8178
+Environment=PK_DECODER=tdt
+Environment=PK_MODEL=/home/aihpc/parakeet-models/tdt_ctc-110m-q8_0.gguf
+Environment=PATH=/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=LD_LIBRARY_PATH=/usr/local/cuda/lib64
+ExecStart=/usr/bin/python3 /home/aihpc/parakeet-stt-server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
