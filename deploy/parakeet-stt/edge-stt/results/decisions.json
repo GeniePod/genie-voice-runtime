@@ -1,0 +1,156 @@
+{
+  "milestone": "M1",
+  "date": "2026-06-10",
+  "primary_engine": {
+    "name": "parakeet.cpp (ggml CUDA backend), tdt_ctc-110m GGUF, built from source (build-parakeet.sh). Per-decoder dtype default (results/dtype/): tdt->q5_k (137MB), ctc->q8_0 (177MB); PK_MODEL overrides.",
+    "why": "Fastest + smallest + accurate, measured on LibriSpeech-300: WER 1.808% @ 61x (tdt, q5_k) / 2.383% @ 107x (ctc, q8_0), +450MB, ~126ms/call. The ggml CUDA backend is ~4-14x ONNX Runtime on the same 25W Orin (sherpa-onnx capped at 25x; the 0.6b on ORT was compute-bound at 7.4x). Near-TensorRT throughput WITHOUT a bespoke TRT engine, on a reproducible from-source build.",
+    "results": "results/parakeet/RESULTS.md",
+    "entrypoint": "./transcribe --mode A (default); PK_DECODER=tdt|ctc (picks the q5_k|q8_0 default); STT_ENGINE=sherpa for the alternative",
+    "vs_targets": "WER 1.81-2.38% PASS (<=3%); RTF 61-107x (best 107x) MISS 250x but project-best; mem +450MB (<=1GB total infeasible: OS floor ~1.5GB)"
+  },
+  "dtype_sweep": {
+    "name": "On-GPU GGUF dtype sweep for tdt_ctc-110m (results/dtype/RESULTS.md)",
+    "method": "Each dtype x decoder run through the official harness on full LibriSpeech-300, 25W, clean box (GeniePod stopped). True f32-derived GGUFs from HF mudler/parakeet-cpp-gguf. Upstream only benched dtypes on a 20-core host CPU; this is the on-device GPU truth.",
+    "table": {
+      "ctc": {"q4_k": {"wer_pct": 2.467, "rtfx": 107.1, "peak_mb": 2232, "size_mb": 126}, "q5_k": {"wer_pct": 2.411, "rtfx": 106.1, "peak_mb": 2245, "size_mb": 137}, "q8_0": {"wer_pct": 2.383, "rtfx": 107.3, "peak_mb": 2279, "size_mb": 177}, "f16": {"wer_pct": 2.369, "rtfx": 107.2, "peak_mb": 2418, "size_mb": 256}},
+      "tdt": {"q4_k": {"wer_pct": 2.018, "rtfx": 61.9, "peak_mb": 2256, "size_mb": 126}, "q5_k": {"wer_pct": 1.808, "rtfx": 61.4, "peak_mb": 2279, "size_mb": 137}, "q8_0": {"wer_pct": 1.836, "rtfx": 61.7, "peak_mb": 2319, "size_mb": 177}, "f16": {"wer_pct": 1.808, "rtfx": 60.9, "peak_mb": 2448, "size_mb": 256}}
+    },
+    "finding_1_speed": "RTFx is DTYPE-INVARIANT (ctc ~107x, tdt ~61x across all dtypes; q4_k 126MB no faster than f16 256MB). With the thread sweep also flat, the engine is kernel-launch/small-matmul-latency bound at batch=1 -> quant is a MEMORY lever, not a speed lever. Batching is the ONLY remaining RTFx lever (the 250x gap).",
+    "finding_2_q5k": "q5_k/tdt = 1.808% @ 61x @ 137MB matches q8_0 accuracy (1.836%) at 23% smaller and identical speed -> tdt default moved q8_0->q5_k for free. ctc keeps q8_0. q4_k (126MB, 2.018/2.467%) is the if-memory-tightens fallback, still <3%.",
+    "audit_note": "parakeet.cpp source audit (memory: parakeet-cpp-perf-audit): engine already optimized (fused encoder graph, persistent gallocr, GPU mel). ctc 107x vs tdt 61x is structural: ctc = one parallel matmul (no token context); tdt = autoregressive transducer (per-(t,u) joint graph rebuilt per step = the bulk of the cost) -> more accurate (implicit LM) but sequential/latency-bound."
+  },
+  "engine_decision": "PRIMARY = parakeet.cpp (ggml CUDA) for offline Mode A. Modes B/C + the reproducible alternative stay sherpa-onnx (TensorRT deferred — see docs/TRADE-OFFS.md + docs/STAGE2-MEMO.md). parakeet.cpp pivot 2026-06-10 after it measured 107x vs sherpa-onnx 25x.",
+  "device_caveats": {
+    "l4t": "36.4.7",
+    "jetpack": "6.2.x",
+    "cuda": "12.6",
+    "tensorrt": "10.3.0.30",
+    "cudnn": "9.3.0.75",
+    "power_mode": "25W",
+    "shared_device": true,
+    "geniepod_resident": "normally yes (LLM + whisper + parakeet STT, ~2-3GB); PAUSED for the clean M1 GPU run with user authorization, then restarted"
+  },
+  "engine_lock": {
+    "mode_A": {
+      "engine": "parakeet.cpp (ggml CUDA backend) — PRIMARY (2026-06-10 pivot)",
+      "model": "tdt_ctc-110m GGUF; per-decoder default tdt=q5_k (137MB) / ctc=q8_0 (177MB) (results/dtype/); PK_MODEL overrides",
+      "provider": "cuda (ggml CUDA, sm_87), built from source (scripts/build-parakeet.sh)",
+      "decode": "parakeet.cpp builtin tdt (autoregressive, accurate) or ctc (one-shot, fast) greedy",
+      "measured": "tdt 1.808% @ 61x / ctc 2.383% @ 107x, +450MB",
+      "alternative": "sherpa-onnx-offline INT8 (STT_ENGINE=sherpa): nemo-parakeet-tdt-0.6b-v2 (1.331% accuracy showcase, 7.4x, peaks 6.6GB) or the deployable zipformer zip70 (1.598%/24x/204MB CPU). TRT eager-batched deferred.",
+      "status": "MEASURED"
+    },
+    "mode_B": {
+      "engine": "sherpa-onnx-online (streaming zipformer int8, chunk-16-left-128)",
+      "provider": "cpu (GPU is ~3x SLOWER for tiny streaming chunks — per-chunk kernel-launch overhead dominates)",
+      "status": "MEASURED"
+    },
+    "mode_C": {
+      "engine": "sherpa-onnx-offline whisper-tiny (LID + multilingual recognizer)",
+      "production_recognizer": "Parakeet-TDT-0.6b-v3 (25-lang) int8 — STAGED + MEASURED (German 7.41%, English 1.71%). Staged via VM parallel-HF (throttle workaround) + local hop; needs a GeniePod GPU pause.",
+      "residency": "TTL/LRU one-resident manager built + validated (src/modes/c_multilingual/residency.py): registry + Whisper-tiny LID router + evict-before-load single-resident invariant.",
+      "status": "MEASURED (whisper-tiny LID + v3 accurate multilingual; residency invariant validated)"
+    }
+  },
+  "gate_c_wer": {
+    "name": "INT8 WER baseline on the pinned 300",
+    "wer_pct": 1.331,
+    "threshold_pct": 3.0,
+    "pass": true,
+    "normalizer": "whisper",
+    "n": 300,
+    "n_scored": 300,
+    "n_oom_skipped": 0,
+    "precision": "int8",
+    "note": "Whisper-normalized WER over all 300 LibriSpeech test-clean (first-300-by-id). Beats the ~1.69% leaderboard prior on this subset; comfortably under the 3% gate. Every clip transcribed (oom=0)."
+  },
+  "gate_b_rtf": {
+    "name": "naive on-device RTFx",
+    "rtfx": 7.406,
+    "rtf": 0.135026,
+    "target_rtfx": 250,
+    "pass": false,
+    "gap_x": 33.8,
+    "replay": "sequential",
+    "total_audio_sec": 2641.085,
+    "infer_sec": 356.616,
+    "note": "Model-load-EXCLUDED inference RTFx (sum of sherpa 'Elapsed seconds' per chunk). Naive: no batching, batch=1, sequential, sherpa-onnx-offline CUDA EP, 25W shared box. Misses 250x by ~34x. Honest gap = A100->Orin ~18-20x + no-batching + 25W power; TensorRT eager-batched (deferred) was only ever ~100-180x (still a miss). RTF reported best-achieved + gap analysis, never as streaming."
+  },
+  "gate_a_memory": {
+    "name": "total-RAM feasibility (as-observed)",
+    "threshold_total_mb": 1024,
+    "pass": false,
+    "idle_total_mb_genie_paused": 1650,
+    "peak_total_mb": 6597,
+    "incremental_mb": 4947,
+    "cuda_used_mb": 6714,
+    "proc_rss_mb": 96.8,
+    "finding": "Parakeet-TDT-0.6b int8 on GPU peaks at ~6.6GB total (ORT CUDA BFC arena grows greedily for long clips). ≤1GB-total is WILDLY infeasible. On the AS-OBSERVED shared box with GeniePod resident (~2-3GB), the model's ~6.6GB peak exceeds 8GB -> it OOM-REBOOTED the device once, then OOM-SIGKILLed. The clean number (6.6GB peak / ~4.9GB incremental over a 1.65GB genie-paused floor) was obtained only after pausing GeniePod. Headline: report total + floor + incremental; the model does not coexist with the other 8GB-box workload.",
+    "footprint_decomposition": "The 6.6GB = 0.6B weights (~650MB) + GPU CUDA context (~1GB, fixed for any CUDA model) + ORT CUDA arena grown over the 300-clip batch (~3GB). 0.6B at chunk=1 (min arena) = ~1.76GB; tiny Zipformer on GPU = ~1GB (all CUDA context). Most of the 6.6GB is reducible runtime, not model.",
+    "deployable_footprint_per_command_cpu": {
+      "note": "Per-process peak RSS (/proc VmHWM), ONE ~3s clip, resident model, CPU — the realistic LyraT voice-command footprint (vs a 300-clip LibriSpeech sweep).",
+      "zipformer_small_en_27mb": {"rss_mb": 115, "wer_pct": 2.036, "rtfx": 28},
+      "zipformer_en_68mb": {"rss_mb": 204, "wer_pct": 1.867, "rtfx": 23},
+      "parakeet_0.6b_631mb": {"rss_mb": 1247, "wer_pct": 1.331, "rtfx": 5},
+      "verdict": "A small Zipformer hits ~115-204 MB/command at <3% WER and 20-30x realtime on CPU — UNDER the 300-400MB target, fits alongside the LLM, faster than 0.6B-on-GPU. Runtime memory scales with clip-length x clips-per-invocation, not model size (91-short-clip batch balloons to ~3GB for EVERY model; a single command does not).",
+      "recommendation": "Deployable on-device STT = zip70 (68MB -> 204MB/command, 1.867%, 23x) or zip28 (115MB, 2.036%). Keep 0.6B as the offline accuracy showcase (1.331%), not the voice STT."
+    },
+    "recommended_deployable_config": {
+      "model": "sherpa-onnx-zipformer-en-2023-06-26 (68MB int8 transducer)",
+      "provider": "cpu (4 threads)",
+      "full_300_wer_pct": 1.598,
+      "full_300_rtfx": 21.6,
+      "resident_mb_per_command": 204,
+      "vs_0.6b_showcase": "0.6B GPU = 1.331% / 7.4x / 1247MB; zip70 CPU is 2.9x faster + ~6x smaller at <3% WER",
+      "rtf_ceiling_note": "~21-25x is the ORT-path ceiling for an accurate small model; 250x needs TensorRT (engine, deferred) + large GPU batches (memory) — opposing the memory budget. Decision (user-confirmed): stay sherpa-onnx, report the honest gap, do NOT pursue TensorRT.",
+      "if_memory_tightens": "drop to zip28 (27MB -> 115MB/command, 2.036%) — still <3%"
+    }
+  },
+  "gate_b_streaming": {
+    "name": "Mode B — true streaming WER + look-ahead",
+    "wer_pct": 1.976,
+    "wer_pct_n100": 2.249,
+    "threshold_pct": 3.0,
+    "breaches_3pct": false,
+    "n": 300,
+    "normalizer": "whisper",
+    "lookahead": "chunk-16-left-128",
+    "engine": "sherpa-onnx-online streaming Zipformer INT8",
+    "provider": "cpu",
+    "rtf_isolated_cpu": 0.6,
+    "rtf_gpu": "1.5-2.7 (overhead-bound; GPU NOT used for streaming)",
+    "rtf_contended_cpu": 3.34,
+    "peak_total_mb": 4598,
+    "note": "Cache-aware streaming Zipformer at chunk-16-left-128 holds 2.249% on the first-100 subset (no >3% breach at this look-ahead; full test-clean low-latency configs may approach the disclosed 3.3-3.9%). RTF is CPU (GPU is ~3x slower for tiny streaming chunks). Streaming RTF is HIGHLY contention-sensitive on the shared box: ~0.6 isolated (1.6x faster than realtime) vs ~3.3 under full GeniePod CPU load — reported separately from offline RTF, never conflated."
+  },
+  "gate_c_multilingual": {
+    "name": "Mode C — multilingual + dynamic (LID + non-English WER)",
+    "lid_accuracy_pct": 96.7,
+    "lid_detail": "29/30 German clips detected 'de' (1 empty) via whisper-tiny auto-LID",
+    "non_english_lang": "de (German)",
+    "non_english_eval": "FLEURS de_de, first-30, BasicTextNormalizer",
+    "non_english_wer_pct_v3": 7.41,
+    "non_english_wer_pct_whisper_tiny": 54.2,
+    "v3_english_wer_pct": 1.71,
+    "v3_english_eval": "LibriSpeech test-clean 300, Whisper-norm (vs v2's 1.331% English-specialist; v3 is the 25-lang multilingual)",
+    "recognizers": "whisper-tiny (LID) + Parakeet-TDT-0.6b-v3 int8 (accurate 25-lang) — BOTH measured on-device",
+    "v3_peak_mb": 6552,
+    "v3_note": "v3 needed a GeniePod GPU pause (same ~6.6 GB peak as v2). Staged via VM parallel-HF download (HF per-connection throttle workaround) + local hop.",
+    "note": "Multilingual architecture proven on-device AND accurate: whisper-tiny auto-LID routes 97% correct; Parakeet-v3 transcribes German at 7.41% WER (vs whisper-tiny's 54.2% — a 7x improvement) and English at 1.71%. The Whisper-tiny LID -> Parakeet-v3 router + TTL/LRU one-resident manager (src/modes/c_multilingual/residency.py, invariant validated) is the production path."
+  },
+  "gate_f_modes_split": {
+    "name": "3 documented modes behind one entrypoint",
+    "modes": ["A", "B", "C"],
+    "mode_A_real": true,
+    "mode_B_real": true,
+    "mode_C_real": true,
+    "entrypoint": "./transcribe --mode A|B|C",
+    "pass": "ALL THREE modes real + measured behind one entrypoint (A offline, B streaming, C multilingual+LID). Mode C's accurate v3 recognizer is the only carry-over (HF-throttled)."
+  },
+  "deploy_mode": "bare-metal",
+  "harness": {
+    "runner": "src/modes/a_offline/runner.py (chunked, sort-short-first, split-to-single OOM fallback)",
+    "reporter": "src/common/wer_rtf_report.py (whisper normalizer + jiwer)",
+    "manifest": "data/manifest.jsonl (300, sha256-pinned, portable wav paths)"
+  }
+}

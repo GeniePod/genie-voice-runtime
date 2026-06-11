@@ -1,0 +1,16 @@
+# Edge-STT — top-level runtime deps (the SINGLE authoritative source; M3-6 extends, never replaces).
+# Pinned versions + the offline wheelhouse are produced on the Jetson (M0-T6); this file is the
+# human-edited input. Host-side authoring needs only the audio + scoring deps.
+
+# audio decode / resample (libsndfile + soxr) — matches spike/prepare_data.py decode contract
+soundfile
+soxr
+numpy
+
+# scoring
+jiwer
+whisper-normalizer
+
+# on-device GPU inference spine (installed on the Jetson, not the x86 host)
+# onnxruntime-gpu   # aarch64+CUDA12 wheel, pinned & vendored on-device in M0-T6
+# sherpa-onnx       # python binding optional; primary use is the built C++ binary

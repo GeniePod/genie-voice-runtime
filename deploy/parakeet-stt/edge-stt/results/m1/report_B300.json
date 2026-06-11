@@ -1,0 +1,22 @@
+{
+  "mode": "B",
+  "n": 300,
+  "total_audio_sec": 2641.085,
+  "wall_sec": 8196.000011,
+  "rtfx": 0.322,
+  "rtf": 3.10327,
+  "wer_pct": 1.976,
+  "n_scored": 300,
+  "normalizer": "whisper",
+  "mem": {
+    "idle_total_mb": 2010,
+    "peak_total_mb": 2780,
+    "proc_rss_mb": 98.0,
+    "cuda_used_mb": 2915.0
+  },
+  "replay": "sequential",
+  "precision": "int8",
+  "engine": "sherpa-onnx-online(streaming-zipformer)",
+  "device": "cpu",
+  "limit": null
+}

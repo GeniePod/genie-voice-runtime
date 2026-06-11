@@ -1,0 +1,22 @@
+{
+  "mode": "C",
+  "n": 30,
+  "total_audio_sec": 386.76,
+  "wall_sec": 47.279,
+  "rtfx": 8.18,
+  "rtf": 0.122244,
+  "wer_pct": 54.0,
+  "n_scored": 30,
+  "normalizer": "whisper",
+  "mem": {
+    "idle_total_mb": 3695,
+    "peak_total_mb": 4592,
+    "proc_rss_mb": 90.3,
+    "cuda_used_mb": 4685.1
+  },
+  "replay": "sequential",
+  "precision": "int8",
+  "engine": "sherpa-onnx-offline(whisper-tiny)",
+  "device": "cuda",
+  "limit": null
+}

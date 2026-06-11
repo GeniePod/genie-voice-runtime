@@ -1,0 +1,22 @@
+{
+  "mode": "A",
+  "n": 300,
+  "total_audio_sec": 2641.085,
+  "wall_sec": 24.890393,
+  "rtfx": 106.109,
+  "rtf": 0.009424,
+  "wer_pct": 2.411,
+  "n_scored": 300,
+  "normalizer": "whisper",
+  "mem": {
+    "idle_total_mb": 1850,
+    "peak_total_mb": 2245,
+    "proc_rss_mb": 91.4,
+    "cuda_used_mb": 2328.8
+  },
+  "replay": "sequential",
+  "precision": "q8_0",
+  "engine": "parakeet.cpp",
+  "device": "cuda",
+  "limit": null
+}

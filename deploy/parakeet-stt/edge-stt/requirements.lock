@@ -1,0 +1,28 @@
+# requirements.lock — pinned runtime deps for the Jetson Orin Nano Super 8 GB
+# (aarch64 / CPython 3.10 / L4T 36.4.7 / CUDA 12.6). This is the LOCKED dependency file the
+# README's Deployment Guide installs; requirements.in is the human-edited source.
+#
+# Provenance: versions are the on-device known-good set (the scoring + numpy stack is exactly what
+# is validated on the Jetson; soundfile/soxr are the data-materialization deps used by
+# scripts/prepare_data.py, pinned to the latest numpy-1.26-compatible aarch64 wheels).
+#
+#   pip install --break-system-packages -r requirements.lock
+#
+# NOTE: the GPU inference engines are NOT pip deps — parakeet.cpp and sherpa-onnx are built from
+# source on-device (scripts/build-parakeet.sh, scripts/build-sherpa.sh); see the README.
+
+# --- scoring ---
+jiwer==4.0.0
+rapidfuzz==3.14.5            # jiwer dependency (alignment)
+click==8.4.1                # jiwer dependency (CLI)
+whisper-normalizer==0.1.12
+regex==2026.5.9             # whisper-normalizer dependency (English text normalizer)
+
+# --- numerics ---
+numpy==1.26.4
+
+# --- audio decode / resample (data materialization only: scripts/prepare_data.py) ---
+soundfile==0.13.1
+cffi==2.0.0                 # soundfile dependency (libsndfile ctypes binding)
+pycparser==3.0             # cffi dependency
+soxr==0.5.0.post1
