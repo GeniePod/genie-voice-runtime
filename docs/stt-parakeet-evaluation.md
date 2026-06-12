@@ -25,6 +25,15 @@ model.
 Net: **more accurate, ~6× faster compute, ~3× lower per-call latency, ~300 MB
 leaner.**
 
+> **Deeper benchmark of this same engine** — full **LibriSpeech-300** (not 50), an on-GPU **dtype
+> sweep**, and a 3-mode (offline / streaming / multilingual) harness behind one CLI — lives in
+> [`../deploy/parakeet-stt/edge-stt/`](../deploy/parakeet-stt/edge-stt/). Two takeaways feed back here:
+> (1) on the full 300 the WER is **1.808 % (tdt, q5_k)** / **2.383 % (ctc)** — higher than the 0.82 %
+> above because it's the full set, not 50 clean clips, and the RTF there is the per-file inference
+> number (61× tdt / 107× ctc), not the amortized 116×. (2) the dtype sweep found **RTFx is
+> dtype-invariant on this GPU**, so **`q5_k` matches `q8_0` accuracy at 23 % smaller** (137 MB) with no
+> speed cost — a free win for the resident server (set it via `PK_MODEL`).
+
 ## Test setup
 
 - **Device:** Jetson Orin Nano Super 8 GB · JetPack 6.2 (L4T 36.4.7) · CUDA 12.6 ·
@@ -79,6 +88,9 @@ exact build + install + revert commands.
 - `tdt_ctc-110m` is the **lean** model. `tdt-0.6b-v2-q8` is more accurate
   (~1.7 % on the leaderboard) but ~904 MB and heavier to load/run — swap it in via
   the service's `PK_MODEL` env if accuracy outweighs footprint.
+- **Quant choice:** the edge-stt dtype sweep (see link above) shows `q5_k` matches `q8_0` accuracy
+  at **23 % smaller** (137 MB) with no speed cost on this GPU — a free swap via `PK_MODEL=…-q5_k.gguf`.
+  `q4_k` (126 MB) is the next rung down if memory tightens (still < 3 % WER).
 - Numbers are `q8_0` quantization on this exact device; treat as device-specific.
 
 ## Build notes (Jetson, parakeet.cpp v0.1.1)

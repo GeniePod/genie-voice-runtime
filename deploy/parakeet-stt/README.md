@@ -5,6 +5,10 @@ Resident parakeet.cpp STT that drop-in replaces whisper-server on
 genie-core needs no change). See [`../../docs/stt-parakeet-evaluation.md`](../../docs/stt-parakeet-evaluation.md)
 for the whisper-vs-parakeet comparison and rationale.
 
+For a deeper benchmark of the same engine — full **LibriSpeech-300** WER/RTF/memory, a GPU **dtype
+sweep** (which `q*_k` to use), and a 3-mode (offline / streaming / multilingual) harness behind one
+CLI — see [`edge-stt/`](edge-stt/) (the Edge-AI STT take-home built around this engine).
+
 Contents:
 - `serve-mode.patch` — adds a resident `serve` subcommand to parakeet.cpp's CLI
   (load model once, transcribe wav paths read from stdin). Against `v0.1.1`.
