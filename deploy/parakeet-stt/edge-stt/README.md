@@ -47,7 +47,9 @@ Used **as-is** on a **shared** Jetson — no reflash, no clock lock (see [`ASSUM
 source scripts/preflight.sh           # or: ./transcribe --selfcheck
 
 # 0b. Install the locked Python deps (scoring + data-prep; pinned for aarch64/cp310).
-pip install --break-system-packages -r requirements.lock
+#     NOTE: PyPI can be slow on a Jetson (~tens of kB/s seen) — the ~17 MB of wheels may take
+#     several minutes; add `-v` if you want progress. It is downloading, not hung.
+pip install -v --break-system-packages -r requirements.lock
 
 # 1. Eval data: LibriSpeech test-clean first-300-by-id -> data/wav/ + data/manifest.jsonl
 bash scripts/get-data.sh

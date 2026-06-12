@@ -16,7 +16,8 @@ set -euo pipefail
 
 SRC="${PARAKEET_SRC:-$HOME/parakeet.cpp}"
 TAG="${PARAKEET_TAG:-v0.1.1}"
-JOBS="${JOBS:-4}"   # 8 GB unified RAM is tight; bound parallelism
+JOBS="${JOBS:-2}"   # 8 GB unified RAM is tight: the ggml-cuda nvcc compile spikes ~1-2 GB/job, so
+                    # -j4 can OOM-reboot the box (observed). -j2 is the safe default; override with JOBS=.
 
 if [ ! -d "$SRC/.git" ]; then
   echo "[build-parakeet] cloning $TAG"
